@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Lightbulb } from 'lucide-react';
+import { Send, Bot, User, Lightbulb, Sparkles } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
 import { useTask } from '../../contexts/TaskContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ChatBot } from '../../utils/ChatBot';
+import { AIService } from '../../utils/AIService';
 
 export const ChatSection: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { messages, addMessage, personality } = useChat();
-  const { tasks, addTask, completeTask, getStats } = useTask();
+  const { tasks, getStats } = useTask();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatBot = new ChatBot();
+  const aiService = AIService.getInstance();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -23,26 +24,36 @@ export const ChatSection: React.FC = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isLoading) return;
+
+    const userMessage = inputMessage.trim();
+    setInputMessage('');
+    setIsLoading(true);
 
     // Add user message
-    addMessage(inputMessage, 'user');
+    addMessage(userMessage, 'user');
     
-    // Generate bot response
-    const botResponse = await chatBot.generateResponse(
-      inputMessage, 
-      personality, 
-      tasks, 
-      getStats(),
-      { addTask, completeTask }
-    );
-    
-    // Add bot response after a small delay
-    setTimeout(() => {
-      addMessage(botResponse, 'bot');
-    }, 500);
-
-    setInputMessage('');
+    try {
+      // Generate AI response
+      const botResponse = await aiService.generateResponse(
+        userMessage, 
+        personality, 
+        tasks, 
+        getStats()
+      );
+      
+      // Add bot response after a small delay
+      setTimeout(() => {
+        addMessage(botResponse, 'bot');
+        setIsLoading(false);
+      }, 500);
+    } catch (error) {
+      console.error('Erro ao gerar resposta:', error);
+      setTimeout(() => {
+        addMessage('Desculpe, ocorreu um erro. Tente novamente!', 'bot');
+        setIsLoading(false);
+      }, 500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -53,14 +64,26 @@ export const ChatSection: React.FC = () => {
   };
 
   const quickActions = [
-    '📝 Criar nova tarefa',
-    '📊 Ver minhas estatísticas',
     '💡 Dica de produtividade',
-    '🎯 Definir metas do dia'
+    '📊 Analisar meu progresso',
+    '🎯 Definir metas hoje',
+    '⏰ Técnica Pomodoro',
+    '📋 Organizar tarefas'
   ];
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-blue-50/50 to-purple-50/50">
+      {/* Header with AI indicator */}
+      <div className="p-4 bg-white/80 backdrop-blur-sm border-b border-white/20">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-500" />
+          <h2 className="font-semibold text-gray-800">Assistente IA</h2>
+          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+            Powered by OpenAI
+          </span>
+        </div>
+      </div>
+
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((message) => (
@@ -101,6 +124,26 @@ export const ChatSection: React.FC = () => {
             )}
           </div>
         ))}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div className="bg-white shadow-sm border border-gray-100 p-4 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+                <span className="text-sm text-gray-500">Pensando...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -114,6 +157,7 @@ export const ChatSection: React.FC = () => {
               size="sm"
               className="whitespace-nowrap bg-white/70 border-white/40 hover:bg-white/90 text-gray-700"
               onClick={() => setInputMessage(action)}
+              disabled={isLoading}
             >
               {action}
             </Button>
@@ -131,12 +175,13 @@ export const ChatSection: React.FC = () => {
               onKeyPress={handleKeyPress}
               placeholder="Digite sua mensagem..."
               className="pr-12 bg-white/80 border-white/40 focus:border-purple-300"
+              disabled={isLoading}
             />
             <Lightbulb className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim()}
+            disabled={!inputMessage.trim() || isLoading}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
             <Send className="w-4 h-4" />

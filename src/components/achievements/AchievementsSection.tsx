@@ -20,7 +20,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(tasks.length, 1),
       maxProgress: 1,
       color: 'from-blue-500 to-purple-500',
-      rarity: 'common'
+      rarity: 'common' as const
     },
     {
       id: 'task-master',
@@ -31,7 +31,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(stats.completedTasks, 10),
       maxProgress: 10,
       color: 'from-yellow-500 to-orange-500',
-      rarity: 'rare'
+      rarity: 'rare' as const
     },
     {
       id: 'productivity-champion',
@@ -42,7 +42,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(stats.completionRate, 80),
       maxProgress: 80,
       color: 'from-green-500 to-emerald-500',
-      rarity: 'epic'
+      rarity: 'epic' as const
     },
     {
       id: 'streak-keeper',
@@ -53,7 +53,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(stats.streak, 7),
       maxProgress: 7,
       color: 'from-purple-500 to-pink-500',
-      rarity: 'legendary'
+      rarity: 'legendary' as const
     },
     {
       id: 'consistent-performer',
@@ -64,7 +64,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(stats.streak, 30),
       maxProgress: 30,
       color: 'from-indigo-500 to-blue-500',
-      rarity: 'legendary'
+      rarity: 'legendary' as const
     },
     {
       id: 'task-collector',
@@ -75,7 +75,7 @@ export const AchievementsSection: React.FC = () => {
       progress: Math.min(tasks.length, 50),
       maxProgress: 50,
       color: 'from-red-500 to-pink-500',
-      rarity: 'epic'
+      rarity: 'epic' as const
     }
   ];
 

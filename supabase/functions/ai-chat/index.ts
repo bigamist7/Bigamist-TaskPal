@@ -22,13 +22,50 @@ serve(async (req) => {
     console.log('🔑 Checking OpenAI API key...');
     if (!openAIApiKey) {
       console.error('❌ OpenAI API key not found');
-      throw new Error('OpenAI API key not configured');
+      return new Response(JSON.stringify({ 
+        error: 'OpenAI API key not configured',
+        details: 'Please configure the OPENAI_API_KEY in Supabase Edge Functions secrets'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     console.log('✅ OpenAI API key found');
 
     console.log('📥 Parsing request body...');
-    const { message, personality, tasks, stats, context } = await req.json();
-    console.log('📊 Request data:', { message, personality, stats });
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request JSON:', parseError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        details: parseError.message
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { message, personality, tasks, stats, context } = requestData;
+    console.log('📊 Request data received:', { 
+      message: message?.substring(0, 50) + '...',
+      personality, 
+      tasksCount: tasks?.length || 0,
+      stats 
+    });
+
+    // Validate required fields
+    if (!message) {
+      console.error('❌ Message is required');
+      return new Response(JSON.stringify({ 
+        error: 'Message is required',
+        details: 'The message field cannot be empty'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Define personality-specific system prompts
     const personalityPrompts = {
@@ -53,8 +90,11 @@ Informações do usuário:
 Contexto da conversa: ${context || 'Nova conversa'}
 `;
 
+    const systemPrompt = personalityPrompts[personality] || personalityPrompts.motivador;
+
     console.log('🤖 Calling OpenAI API...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -65,7 +105,7 @@ Contexto da conversa: ${context || 'Nova conversa'}
         messages: [
           { 
             role: 'system', 
-            content: `${personalityPrompts[personality] || personalityPrompts.motivador}
+            content: `${systemPrompt}
             
             Você é especialista em produtividade e gestão de tarefas. Ajude o usuário com:
             - Organização de tarefas e priorização
@@ -85,28 +125,41 @@ Contexto da conversa: ${context || 'Nova conversa'}
       }),
     });
 
-    console.log('📡 OpenAI response status:', response.status);
+    console.log('📡 OpenAI response status:', openAIResponse.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      console.error('❌ OpenAI API error:', openAIResponse.status, errorText);
+      return new Response(JSON.stringify({ 
+        error: `OpenAI API error: ${openAIResponse.status}`,
+        details: errorText
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const data = await response.json();
+    const openAIData = await openAIResponse.json();
     console.log('✅ OpenAI response received');
     
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('❌ Invalid OpenAI response format:', data);
-      throw new Error('Invalid response format from OpenAI');
+    if (!openAIData.choices || !openAIData.choices[0] || !openAIData.choices[0].message) {
+      console.error('❌ Invalid OpenAI response format:', openAIData);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid response format from OpenAI',
+        details: 'The AI response does not contain the expected message structure'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const aiResponse = data.choices[0].message.content;
+    const aiResponse = openAIData.choices[0].message.content;
     console.log('✅ AI response extracted:', aiResponse.substring(0, 100) + '...');
 
     return new Response(JSON.stringify({ response: aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error) {
     console.error('💥 Error in ai-chat function:', error);
     
@@ -114,8 +167,9 @@ Contexto da conversa: ${context || 'Nova conversa'}
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
     return new Response(JSON.stringify({ 
-      error: errorMessage,
-      details: 'Check the function logs for more information'
+      error: `Function error: ${errorMessage}`,
+      details: 'Check the function logs for more information',
+      stack: error instanceof Error ? error.stack : undefined
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

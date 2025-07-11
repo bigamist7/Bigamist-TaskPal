@@ -10,13 +10,25 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('🔄 AI Chat function called');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('🔑 Checking OpenAI API key...');
+    if (!openAIApiKey) {
+      console.error('❌ OpenAI API key not found');
+      throw new Error('OpenAI API key not configured');
+    }
+    console.log('✅ OpenAI API key found');
+
+    console.log('📥 Parsing request body...');
     const { message, personality, tasks, stats, context } = await req.json();
+    console.log('📊 Request data:', { message, personality, stats });
 
     // Define personality-specific system prompts
     const personalityPrompts = {
@@ -32,15 +44,16 @@ serve(async (req) => {
     // Prepare context about user's current state
     const contextInfo = `
 Informações do usuário:
-- Total de tarefas: ${stats.totalTasks}
-- Tarefas concluídas: ${stats.completedTasks}
-- Taxa de conclusão: ${stats.completionRate.toFixed(1)}%
-- Sequência atual: ${stats.streak} dias
-- Tarefas ativas: ${tasks.length}
+- Total de tarefas: ${stats?.totalTasks || 0}
+- Tarefas concluídas: ${stats?.completedTasks || 0}
+- Taxa de conclusão: ${stats?.completionRate?.toFixed(1) || 0}%
+- Sequência atual: ${stats?.streak || 0} dias
+- Tarefas ativas: ${tasks?.length || 0}
 
 Contexto da conversa: ${context || 'Nova conversa'}
 `;
 
+    console.log('🤖 Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -72,19 +85,38 @@ Contexto da conversa: ${context || 'Nova conversa'}
       }),
     });
 
+    console.log('📡 OpenAI response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('✅ OpenAI response received');
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('❌ Invalid OpenAI response format:', data);
+      throw new Error('Invalid response format from OpenAI');
+    }
+
     const aiResponse = data.choices[0].message.content;
+    console.log('✅ AI response extracted:', aiResponse.substring(0, 100) + '...');
 
     return new Response(JSON.stringify({ response: aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in ai-chat function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('💥 Error in ai-chat function:', error);
+    
+    // Return a more detailed error response
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      details: 'Check the function logs for more information'
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

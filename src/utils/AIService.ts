@@ -55,7 +55,17 @@ export class AIService {
         throw new Error(`Erro na função AI: ${error.message}`);
       }
 
-      if (!data || !data.response) {
+      if (!data) {
+        console.error('❌ Dados não recebidos da função AI');
+        throw new Error('Nenhum dado recebido da função AI');
+      }
+
+      if (data.error) {
+        console.error('❌ Erro retornado pela função AI:', data.error);
+        throw new Error(`Erro da função AI: ${data.error}`);
+      }
+
+      if (!data.response) {
         console.error('❌ Resposta inválida da função AI:', data);
         throw new Error('Resposta inválida da função AI');
       }
@@ -71,15 +81,25 @@ export class AIService {
       console.error('💥 Erro completo no AIService:', error);
       
       // Fallback to simple response if AI fails
-      return this.getFallbackResponse(personality);
+      return this.getFallbackResponse(personality, error);
     }
   }
 
-  private getFallbackResponse(personality: PersonalityType): string {
+  private getFallbackResponse(personality: PersonalityType, error?: any): string {
     console.log('🔄 Usando resposta de fallback para personalidade:', personality);
     
+    // Check if it's an API key issue
+    if (error?.message?.includes('API key') || error?.message?.includes('401')) {
+      return '🔑 Parece que há um problema com a configuração da API key do OpenAI. Verifique se a chave foi configurada corretamente no Supabase.';
+    }
+    
+    // Check if it's a network issue
+    if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+      return '🌐 Problema de conexão detectado. Verifique sua internet e tente novamente em alguns segundos.';
+    }
+    
     const fallbacks = {
-      motivador: '💪 Desculpe, tive um problema técnico. Mas estou aqui para te ajudar! Como posso te motivar hoje?',
+      motivador: '💪 Desculpe, tive um problema técnico temporário. Mas estou aqui para te ajudar! Como posso te motivar hoje?',
       zen: '🧘‍♀️ Algo deu errado, mas mantenha a calma. Respire fundo e me conte como posso ajudar.',
       profissional: '⚡ Ocorreu um erro técnico. Como posso ajudar você a ser mais produtivo?',
       brincalhao: '🎪 Ops! Algo deu errado, mas não desanime! Como posso tornar seu dia mais divertido?'

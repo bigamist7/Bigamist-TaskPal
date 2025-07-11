@@ -2,82 +2,91 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
-  console.log('🔄 AI Chat function called');
+  console.log('🚀 [AI-CHAT] Function started');
+  console.log('🔍 [AI-CHAT] Request method:', req.method);
+  console.log('🔍 [AI-CHAT] Request URL:', req.url);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('✅ CORS preflight handled');
+    console.log('✅ [AI-CHAT] CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🔑 Checking OpenAI API key...');
+    // Check OpenAI API key first
+    console.log('🔑 [AI-CHAT] Checking OpenAI API key...');
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    
     if (!openAIApiKey) {
-      console.error('❌ OpenAI API key not found in environment');
+      console.error('❌ [AI-CHAT] OpenAI API key not found');
       return new Response(JSON.stringify({ 
-        error: 'OpenAI API key not configured',
-        details: 'OPENAI_API_KEY environment variable is missing'
+        error: 'OPENAI_API_KEY not configured in Supabase secrets',
+        debug: 'Check Edge Functions secrets in Supabase dashboard'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('✅ OpenAI API key found, length:', openAIApiKey.length);
+    
+    console.log('✅ [AI-CHAT] OpenAI API key exists, length:', openAIApiKey.length);
 
-    console.log('📥 Reading request body...');
+    // Read and parse request body
+    console.log('📥 [AI-CHAT] Reading request body...');
     let requestData;
+    
     try {
-      const requestText = await req.text();
-      console.log('📄 Raw request received, length:', requestText.length);
-      console.log('📄 Raw request body:', requestText.substring(0, 200) + '...');
+      const bodyText = await req.text();
+      console.log('📄 [AI-CHAT] Raw body length:', bodyText.length);
+      console.log('📄 [AI-CHAT] Raw body preview:', bodyText.substring(0, 200));
       
-      if (!requestText.trim()) {
-        throw new Error('Empty request body');
+      if (!bodyText || bodyText.trim() === '') {
+        throw new Error('Request body is empty');
       }
       
-      requestData = JSON.parse(requestText);
-      console.log('✅ Request parsed successfully');
+      requestData = JSON.parse(bodyText);
+      console.log('✅ [AI-CHAT] Request body parsed successfully');
+      console.log('📊 [AI-CHAT] Parsed data keys:', Object.keys(requestData));
     } catch (parseError) {
-      console.error('❌ Failed to parse request JSON:', parseError);
+      console.error('❌ [AI-CHAT] Failed to parse request body:', parseError.message);
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body',
-        details: parseError.message
+        details: parseError.message,
+        debug: 'Check if request body is valid JSON'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const { message, personality, tasks, stats, context } = requestData;
-    console.log('📊 Extracted data:', { 
-      hasMessage: !!message, 
-      messageLength: message?.length,
-      personality, 
-      tasksCount: tasks?.length || 0,
-      statsPresent: !!stats
-    });
 
     // Validate required fields
+    const { message, personality, tasks, stats, context } = requestData;
+    console.log('🔍 [AI-CHAT] Validating fields...');
+    console.log('🔍 [AI-CHAT] Message:', message ? `"${message.substring(0, 50)}..."` : 'MISSING');
+    console.log('🔍 [AI-CHAT] Personality:', personality || 'MISSING');
+    console.log('🔍 [AI-CHAT] Tasks count:', Array.isArray(tasks) ? tasks.length : 'NOT_ARRAY');
+    console.log('🔍 [AI-CHAT] Stats:', stats ? 'PRESENT' : 'MISSING');
+
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      console.error('❌ Invalid or missing message');
+      console.error('❌ [AI-CHAT] Message validation failed');
       return new Response(JSON.stringify({ 
         error: 'Message is required and must be a non-empty string',
-        received: { message, type: typeof message }
+        received: { message, type: typeof message },
+        debug: 'Ensure message field contains text'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Define personality prompts
+    // Prepare OpenAI request
+    console.log('🤖 [AI-CHAT] Preparing OpenAI request...');
+    
     const personalityPrompts = {
       motivador: `Você é um assistente de produtividade extremamente motivador e energético! Use emojis e linguagem inspiradora. Seu objetivo é motivar o usuário a alcançar seus objetivos. Seja positivo, entusiástico e encoraje sempre. Dê dicas práticas de produtividade com energia contagiante.`,
       zen: `Você é um assistente de produtividade zen e mindful. Use uma linguagem calma, serena e reflexiva. Foque em equilíbrio, bem-estar e crescimento sustentável. Dê conselhos sobre produtividade de forma gentil e contemplativa, sempre considerando o bem-estar mental.`,
@@ -86,9 +95,8 @@ serve(async (req) => {
     };
 
     const systemPrompt = personalityPrompts[personality] || personalityPrompts.motivador;
-    console.log('🎭 Using personality:', personality);
+    console.log('🎭 [AI-CHAT] Using personality:', personality);
 
-    // Prepare context
     const contextInfo = `
 Informações do usuário:
 - Total de tarefas: ${stats?.totalTasks || 0}
@@ -107,16 +115,16 @@ Contexto da conversa: ${context || 'Nova conversa'}
           role: 'system', 
           content: `${systemPrompt}
           
-          Você é especialista em produtividade e gestão de tarefas. Ajude o usuário com:
-          - Organização de tarefas e priorização
-          - Técnicas de produtividade (Pomodoro, GTD, etc.)
-          - Motivação e foco
-          - Análise de progresso
-          - Sugestões personalizadas
-          
-          Sempre responda em português brasileiro. Seja conciso mas útil.
-          
-          ${contextInfo}`
+Você é especialista em produtividade e gestão de tarefas. Ajude o usuário com:
+- Organização de tarefas e priorização
+- Técnicas de produtividade (Pomodoro, GTD, etc.)
+- Motivação e foco
+- Análise de progresso
+- Sugestões personalizadas
+
+Sempre responda em português brasileiro. Seja conciso mas útil.
+
+${contextInfo}`
         },
         { role: 'user', content: message }
       ],
@@ -124,8 +132,9 @@ Contexto da conversa: ${context || 'Nova conversa'}
       max_tokens: 500
     };
 
-    console.log('🤖 Calling OpenAI API...');
-    console.log('📤 OpenAI payload:', JSON.stringify(openAIPayload, null, 2));
+    console.log('📤 [AI-CHAT] Calling OpenAI API...');
+    console.log('📤 [AI-CHAT] Model:', openAIPayload.model);
+    console.log('📤 [AI-CHAT] Messages count:', openAIPayload.messages.length);
     
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -136,21 +145,21 @@ Contexto da conversa: ${context || 'Nova conversa'}
       body: JSON.stringify(openAIPayload),
     });
 
-    console.log('📡 OpenAI response status:', openAIResponse.status);
-    console.log('📡 OpenAI response headers:', Object.fromEntries(openAIResponse.headers.entries()));
+    console.log('📡 [AI-CHAT] OpenAI response status:', openAIResponse.status);
+    console.log('📡 [AI-CHAT] OpenAI response headers:', Object.fromEntries(openAIResponse.headers.entries()));
 
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
-      console.error('❌ OpenAI API error:', {
+      console.error('❌ [AI-CHAT] OpenAI API error:', {
         status: openAIResponse.status,
         statusText: openAIResponse.statusText,
-        body: errorText
+        body: errorText.substring(0, 500)
       });
       
       return new Response(JSON.stringify({ 
         error: `OpenAI API error: ${openAIResponse.status} ${openAIResponse.statusText}`,
-        details: errorText,
-        apiKeyLength: openAIApiKey.length
+        details: errorText.substring(0, 200),
+        debug: 'Check OpenAI API key and account status'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -158,13 +167,15 @@ Contexto da conversa: ${context || 'Nova conversa'}
     }
 
     const openAIData = await openAIResponse.json();
-    console.log('✅ OpenAI response received:', JSON.stringify(openAIData, null, 2));
+    console.log('✅ [AI-CHAT] OpenAI response received');
+    console.log('📊 [AI-CHAT] Response data keys:', Object.keys(openAIData));
     
     if (!openAIData.choices || !openAIData.choices[0] || !openAIData.choices[0].message) {
-      console.error('❌ Invalid OpenAI response format');
+      console.error('❌ [AI-CHAT] Invalid OpenAI response format:', openAIData);
       return new Response(JSON.stringify({ 
         error: 'Invalid response format from OpenAI',
-        received: openAIData
+        received: openAIData,
+        debug: 'OpenAI response structure is unexpected'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -172,26 +183,27 @@ Contexto da conversa: ${context || 'Nova conversa'}
     }
 
     const aiResponse = openAIData.choices[0].message.content;
-    console.log('✅ AI response extracted, length:', aiResponse?.length);
+    console.log('✅ [AI-CHAT] AI response extracted, length:', aiResponse?.length);
+    console.log('📝 [AI-CHAT] AI response preview:', aiResponse?.substring(0, 100));
 
     const successResponse = { response: aiResponse };
-    console.log('📤 Sending success response:', JSON.stringify(successResponse));
+    console.log('📤 [AI-CHAT] Sending success response');
 
     return new Response(JSON.stringify(successResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('💥 Unexpected error in ai-chat function:', error);
-    console.error('💥 Error stack:', error.stack);
+    console.error('💥 [AI-CHAT] Unexpected error:', error.message);
+    console.error('💥 [AI-CHAT] Error stack:', error.stack);
     
     const errorResponse = { 
       error: `Function error: ${error.message}`,
-      details: 'Check the function logs for more information',
-      stack: error.stack
+      debug: 'Check the function logs for more information',
+      stack: error.stack?.substring(0, 500)
     };
     
-    console.log('📤 Sending error response:', JSON.stringify(errorResponse));
+    console.log('📤 [AI-CHAT] Sending error response');
     
     return new Response(JSON.stringify(errorResponse), {
       status: 500,

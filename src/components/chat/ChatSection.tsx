@@ -30,31 +30,51 @@ export const ChatSection: React.FC = () => {
     setInputMessage('');
     setIsLoading(true);
 
+    console.log('🚀 Iniciando envio de mensagem:', userMessage);
+
     // Add user message
     addMessage(userMessage, 'user');
     
     try {
-      console.log('Enviando mensagem para IA:', userMessage);
+      console.log('⏳ Gerando resposta da IA...');
       
-      // Generate AI response using the real OpenAI integration
-      const botResponse = await aiService.generateResponse(
+      // Set a timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: A IA demorou muito para responder')), 30000); // 30 seconds
+      });
+
+      const aiResponsePromise = aiService.generateResponse(
         userMessage, 
         personality, 
         tasks, 
         getStats()
       );
+
+      const botResponse = await Promise.race([aiResponsePromise, timeoutPromise]) as string;
       
-      console.log('Resposta da IA recebida:', botResponse);
+      console.log('✅ Resposta da IA recebida com sucesso');
       
       // Add bot response
       setTimeout(() => {
         addMessage(botResponse, 'bot');
         setIsLoading(false);
       }, 500);
+      
     } catch (error) {
-      console.error('Erro ao gerar resposta:', error);
+      console.error('❌ Erro ao gerar resposta:', error);
+      
+      let errorMessage = 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente!';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Timeout')) {
+          errorMessage = 'A IA está demorando muito para responder. Tente uma pergunta mais simples!';
+        } else if (error.message.includes('fetch')) {
+          errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+        }
+      }
+      
       setTimeout(() => {
-        addMessage('Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente!', 'bot');
+        addMessage(errorMessage, 'bot');
         setIsLoading(false);
       }, 500);
     }
@@ -142,7 +162,7 @@ export const ChatSection: React.FC = () => {
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <span className="text-sm text-gray-500">Pensando com IA...</span>
+                <span className="text-sm text-gray-500">Processando com IA...</span>
               </div>
             </div>
           </div>

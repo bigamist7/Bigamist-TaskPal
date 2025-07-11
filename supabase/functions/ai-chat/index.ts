@@ -193,14 +193,13 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
   const systemPrompt = (personalityPrompts[personality] || personalityPrompts.motivador) + 
     'Forneça informações atuais e precisas. Sempre responda em português brasileiro.';
 
-  // Use the correct Perplexity model based on the provided example
+  // Use a valid Perplexity model - llama-3.1-sonar-small-128k-online is the correct one
   const perplexityPayload = {
-    model: 'sonar-deep-research',
+    model: 'llama-3.1-sonar-small-128k-online',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
-    ],
-    reasoning_effort: 'low'
+    ]
   };
 
   console.log('📤 [AI-CHAT] Calling Perplexity API...');
@@ -209,8 +208,7 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(perplexityPayload),
   });
@@ -255,7 +253,7 @@ Contexto da conversa: ${context || 'Nova conversa'}
 `;
 
   const openAIPayload = {
-    model: 'gpt-4.1-2025-04-14',
+    model: 'gpt-4o-mini',
     messages: [
       { 
         role: 'system', 

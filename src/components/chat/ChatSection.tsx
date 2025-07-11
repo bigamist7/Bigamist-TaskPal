@@ -34,7 +34,9 @@ export const ChatSection: React.FC = () => {
     addMessage(userMessage, 'user');
     
     try {
-      // Generate AI response
+      console.log('Enviando mensagem para IA:', userMessage);
+      
+      // Generate AI response using the real OpenAI integration
       const botResponse = await aiService.generateResponse(
         userMessage, 
         personality, 
@@ -42,7 +44,9 @@ export const ChatSection: React.FC = () => {
         getStats()
       );
       
-      // Add bot response after a small delay
+      console.log('Resposta da IA recebida:', botResponse);
+      
+      // Add bot response
       setTimeout(() => {
         addMessage(botResponse, 'bot');
         setIsLoading(false);
@@ -50,7 +54,7 @@ export const ChatSection: React.FC = () => {
     } catch (error) {
       console.error('Erro ao gerar resposta:', error);
       setTimeout(() => {
-        addMessage('Desculpe, ocorreu um erro. Tente novamente!', 'bot');
+        addMessage('Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente!', 'bot');
         setIsLoading(false);
       }, 500);
     }
@@ -138,7 +142,7 @@ export const ChatSection: React.FC = () => {
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <span className="text-sm text-gray-500">Pensando...</span>
+                <span className="text-sm text-gray-500">Pensando com IA...</span>
               </div>
             </div>
           </div>

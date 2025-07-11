@@ -1,5 +1,6 @@
 import { PersonalityType } from '../contexts/ChatContext';
 import { Task, TaskStats } from '../contexts/TaskContext';
+import { supabase } from '../integrations/supabase/client';
 
 export class AIService {
   private static instance: AIService;
@@ -29,26 +30,20 @@ export class AIService {
         this.conversationHistory = this.conversationHistory.slice(-10);
       }
 
-      const response = await fetch('https://xwirgxwigptnyccqgkqi.supabase.co/functions/v1/ai-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aXJneHdpd2dwdG55Y3Fna3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNTQzNjEsImV4cCI6MjA2NzczMDM2MX0.tPKH7VhrUfvZu6E1YHDdFByLUmbQbPhqtGasK_9B0Us`
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
           message: userMessage,
           personality,
           tasks,
           stats,
           context: this.conversationHistory.join('\n')
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na função AI: ${error.message}`);
       }
 
-      const data = await response.json();
       const aiResponse = data.response;
 
       // Add AI response to history

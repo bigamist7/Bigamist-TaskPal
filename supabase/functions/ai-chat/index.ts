@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -193,16 +192,21 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
   const systemPrompt = (personalityPrompts[personality] || personalityPrompts.motivador) + 
     'Forneça informações atuais e precisas. Sempre responda em português brasileiro.';
 
-  // Use the correct Perplexity model
+  // Use the correct Perplexity model with proper parameters
   const perplexityPayload = {
-    model: 'llama-3.1-sonar-small-128k-chat',
+    model: 'llama-3.1-sonar-small-128k-online',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
     ],
     temperature: 0.2,
     top_p: 0.9,
-    max_tokens: 1000
+    max_tokens: 1000,
+    return_images: false,
+    return_related_questions: false,
+    search_recency_filter: 'month',
+    frequency_penalty: 1,
+    presence_penalty: 0
   };
 
   console.log('📤 [AI-CHAT] Calling Perplexity API...');

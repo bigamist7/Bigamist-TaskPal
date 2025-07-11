@@ -193,18 +193,16 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
   const systemPrompt = (personalityPrompts[personality] || personalityPrompts.motivador) + 
     'Forneça informações atuais e precisas. Sempre responda em português brasileiro.';
 
+  // Use the correct Perplexity model
   const perplexityPayload = {
-    model: 'llama-3.1-sonar-small-128k-online',
+    model: 'llama-3.1-sonar-small-128k-chat',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
     ],
     temperature: 0.2,
     top_p: 0.9,
-    max_tokens: 1000,
-    return_images: false,
-    return_related_questions: false,
-    search_recency_filter: 'month'
+    max_tokens: 1000
   };
 
   console.log('📤 [AI-CHAT] Calling Perplexity API...');

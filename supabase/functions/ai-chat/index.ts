@@ -193,9 +193,9 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
   const systemPrompt = (personalityPrompts[personality] || personalityPrompts.motivador) + 
     'Forneça informações atuais e precisas. Sempre responda em português brasileiro.';
 
-  // Use a valid Perplexity model - llama-3.1-sonar-small-128k-online is the correct one
+  // Use the new Sonar model that's available
   const perplexityPayload = {
-    model: 'llama-3.1-sonar-small-128k-online',
+    model: 'sonar',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }

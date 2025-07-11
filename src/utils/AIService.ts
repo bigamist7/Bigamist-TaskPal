@@ -38,20 +38,34 @@ export class AIService {
 
       console.log('🔄 Chamando função edge ai-chat...');
       
+      const requestBody = {
+        message: userMessage,
+        personality,
+        tasks,
+        stats,
+        context: this.conversationHistory.join('\n')
+      };
+
+      console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
+      
       const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: {
-          message: userMessage,
-          personality,
-          tasks,
-          stats,
-          context: this.conversationHistory.join('\n')
-        }
+        body: requestBody
       });
 
       console.log('📡 Resposta da função edge:', { data, error });
 
       if (error) {
         console.error('❌ Erro na função AI:', error);
+        
+        // Check for specific error types
+        if (error.message?.includes('not found') || error.message?.includes('404')) {
+          throw new Error('Função AI não encontrada. Verifique se a função edge foi implantada corretamente.');
+        }
+        
+        if (error.message?.includes('timeout') || error.message?.includes('504')) {
+          throw new Error('Timeout: A função AI demorou muito para responder. Tente novamente.');
+        }
+        
         throw new Error(`Erro na função AI: ${error.message}`);
       }
 
@@ -62,6 +76,20 @@ export class AIService {
 
       if (data.error) {
         console.error('❌ Erro retornado pela função AI:', data.error);
+        
+        // Handle specific OpenAI errors
+        if (data.error.includes('API key')) {
+          throw new Error('Problema com a chave da API OpenAI. Verifique se a chave está configurada corretamente no Supabase.');
+        }
+        
+        if (data.error.includes('rate limit') || data.error.includes('429')) {
+          throw new Error('Limite de uso da API OpenAI atingido. Tente novamente em alguns minutos.');
+        }
+        
+        if (data.error.includes('quota') || data.error.includes('billing')) {
+          throw new Error('Cota da API OpenAI esgotada. Verifique sua conta OpenAI.');
+        }
+        
         throw new Error(`Erro da função AI: ${data.error}`);
       }
 
@@ -88,14 +116,21 @@ export class AIService {
   private getFallbackResponse(personality: PersonalityType, error?: any): string {
     console.log('🔄 Usando resposta de fallback para personalidade:', personality);
     
-    // Check if it's an API key issue
-    if (error?.message?.includes('API key') || error?.message?.includes('401')) {
-      return '🔑 Parece que há um problema com a configuração da API key do OpenAI. Verifique se a chave foi configurada corretamente no Supabase.';
+    // Check for specific error types
+    if (error?.message?.includes('API key') || error?.message?.includes('OpenAI')) {
+      return '🔑 Há um problema com a configuração da API key do OpenAI. Verifique se a chave foi configurada corretamente no Supabase Edge Functions.';
     }
     
-    // Check if it's a network issue
-    if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+    if (error?.message?.includes('timeout') || error?.message?.includes('Timeout')) {
+      return '⏰ A IA está demorando muito para responder. Tente uma pergunta mais simples ou aguarde alguns segundos antes de tentar novamente.';
+    }
+    
+    if (error?.message?.includes('fetch') || error?.message?.includes('network') || error?.message?.includes('conexão')) {
       return '🌐 Problema de conexão detectado. Verifique sua internet e tente novamente em alguns segundos.';
+    }
+    
+    if (error?.message?.includes('não encontrada') || error?.message?.includes('404')) {
+      return '🔧 Há um problema técnico com a função de IA. Entre em contato com o suporte técnico.';
     }
     
     const fallbacks = {

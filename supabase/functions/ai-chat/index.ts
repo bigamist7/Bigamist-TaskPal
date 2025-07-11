@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -29,7 +30,7 @@ serve(async (req) => {
         error: 'OPENAI_API_KEY not configured in Supabase secrets',
         debug: 'Check Edge Functions secrets in Supabase dashboard'
       }), {
-        status: 200, // Changed to 200 to avoid non-2xx error
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -40,7 +41,7 @@ serve(async (req) => {
         error: 'PERPLEXITY_API_KEY not configured in Supabase secrets',
         debug: 'Check Edge Functions secrets in Supabase dashboard'
       }), {
-        status: 200, // Changed to 200 to avoid non-2xx error
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -61,7 +62,7 @@ serve(async (req) => {
           error: 'Request body is empty',
           debug: 'Ensure request body contains valid JSON'
         }), {
-          status: 200, // Changed to 200
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -76,7 +77,7 @@ serve(async (req) => {
         details: parseError.message,
         debug: 'Check if request body is valid JSON'
       }), {
-        status: 200, // Changed to 200
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -94,7 +95,7 @@ serve(async (req) => {
         received: { message, type: typeof message },
         debug: 'Ensure message field contains text'
       }), {
-        status: 200, // Changed to 200
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -143,7 +144,7 @@ serve(async (req) => {
         debug: 'Error occurred while calling AI service',
         service: needsRealTimeInfo ? 'Perplexity' : 'OpenAI'
       }), {
-        status: 200, // Changed to 200
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -161,7 +162,7 @@ serve(async (req) => {
     console.log('📤 [AI-CHAT] Sending error response');
     
     return new Response(JSON.stringify(errorResponse), {
-      status: 200, // Changed to 200 to avoid non-2xx error
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -192,21 +193,14 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
   const systemPrompt = (personalityPrompts[personality] || personalityPrompts.motivador) + 
     'Forneça informações atuais e precisas. Sempre responda em português brasileiro.';
 
-  // Use the correct Perplexity model with proper parameters
+  // Use the correct Perplexity model based on the provided example
   const perplexityPayload = {
-    model: 'llama-3.1-sonar-small-128k-online',
+    model: 'sonar-deep-research',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
     ],
-    temperature: 0.2,
-    top_p: 0.9,
-    max_tokens: 1000,
-    return_images: false,
-    return_related_questions: false,
-    search_recency_filter: 'month',
-    frequency_penalty: 1,
-    presence_penalty: 0
+    reasoning_effort: 'low'
   };
 
   console.log('📤 [AI-CHAT] Calling Perplexity API...');
@@ -216,6 +210,7 @@ async function getPerplexityResponse(message: string, personality: string, apiKe
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'Accept': 'application/json'
     },
     body: JSON.stringify(perplexityPayload),
   });
